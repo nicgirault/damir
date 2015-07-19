@@ -21,3 +21,4 @@ unzip -d data 'tmp/*'
 #rm -rf tmp
 
 wget ${URL_PREFIX}20150204-182119/Lexique_tables_R.zip -O tmp.zip && unzip tmp.zip && rm tmp.zip && mv Lexique\ tables\ R data/lookup
+wget ${URL_PREFIX}20150204-181748/descriptif_table_R.xls -P data/lookup
