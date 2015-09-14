@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.bar {
+  fill: steelblue;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.tooltip{
+  background-color:rgba(0,0,0,0.2);
+  margin: 10px;
+  height: 50px;
+  width: 150px;
+  padding-left: 10px;
+  padding-top: 10px;
+  -webkit-border-radius:2px;
+  -moz-border-radius:2px;
+  border-radius:2px;
+}
+
+</style>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+<script type="text/javascript" src="./tooltip.js"></script>
+<script>
+
+var margin = {top: 20, right: 20, bottom: 30, left: 40},
+    width = 4000 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var x0 = d3.scale.ordinal()
+    .rangeRoundBands([0, width], .1);
+
+var x1 = d3.scale.ordinal();
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var color = d3.scale.ordinal()
+    .range(["#98abc5", "#8a89a6"]);
+
+var xAxis = d3.svg.axis()
+    .scale(x0)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .tickFormat(d3.format(".2s"));
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+d3.tsv("liberal-vs-salarial.tsv", function(error, data) {
+
+  if (error) throw error;
+
+  dsv = d3.dsv(";", "text/plain");
+  dsv("lib_serie.csv", function(error, s) {
+    series = d3.map(s, function(d) { return d.serie; });
+  });
+
+  data.forEach(function(d) {
+    d.cost_per_act = parseInt(d.cost) / parseInt(d.count);
+  });
+
+  nestedData = d3.nest()
+    .key(function(d) { return d.SERIE;})
+    .entries(data);
+
+  // remove a Serie if there is no salarial and liberal
+  nestedData = nestedData.filter(function(d) {
+    return d.values.length == 2;
+  });
+
+  var diff = function(a, b) {
+    if (a.pre_stj1 == "1") {
+      return a.cost_per_act - b.cost_per_act;
+    } else {
+      return b.cost_per_act - a.cost_per_act;
+    }
+  }
+
+  var comparator = function(a, b) {
+    diffA = diff(a.values[0], a.values[1]);
+    diffB = diff(b.values[0], b.values[1]);
+    // console.log(diffA);
+    return diffB - diffA;
+    // return diffA - diffB;
+  }
+
+  nestedData.sort(comparator);
+
+  x0.domain(nestedData.map(function(d) { return d.key; }));
+  x1.domain(data.map(function(d) { return d.pre_stj1; })).rangeRoundBands([0, x0.rangeBand()]);
+  y.domain([0, d3.max(data, function(d) { return d.cost_per_act; })]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Cost per act");
+
+  var state = svg.selectAll(".state")
+      .data(nestedData)
+    .enter().append("g")
+      .attr("class", "g")
+      .attr("transform", function(d) { return "translate(" + x0(d.key) + ",0)"; });
+
+  state.selectAll("rect")
+      .data(function(d) {
+        return d.values;
+      })
+    .enter().append("rect")
+      .attr("width", x1.rangeBand())
+      .attr("x", function(d) { return x1(d.pre_stj1); })
+      .attr("y", function(d) {
+        return y(d.cost_per_act);
+      })
+      .attr("height", function(d) { return height - y(d.cost_per_act); })
+      .style("fill", function(d) { return color(d.pre_stj1); })
+      .call(d3.helper.tooltip(
+        function(d, i){
+          return "<b>"+series.get(d.SERIE).l_serie + "</b>";
+        }
+      ));
+});
+
+</script>
